@@ -1,15 +1,22 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class RouteService {
-  // You need to sign up for a free API key at https://openrouteservice.org/dev/#/signup
-  // Replace this with your actual API key
-  static const String apiKey = 'YOUR_API_KEY_HERE';
+  // Get API key from environment variables
+  static String get apiKey => dotenv.env['ROUTE_API_KEY'] ?? 'YOUR_API_KEY_HERE';
   static const String baseUrl = 'https://api.openrouteservice.org/v2/directions/';
 
   // Get route between two points
   static Future<List<LatLng>?> getRoute(LatLng start, LatLng destination, {String profile = 'driving-car'}) async {
+    // If API key is not set, use simulated route
+    if (apiKey == 'YOUR_API_KEY_HERE') {
+      debugPrint('API key not set, using simulated route');
+      return getSimulatedRoute(start, destination);
+    }
+    
     try {
       final url = Uri.parse('$baseUrl$profile');
       
@@ -20,6 +27,8 @@ class RouteService {
         ]
       };
 
+      debugPrint('Requesting route from ${start.latitude},${start.longitude} to ${destination.latitude},${destination.longitude}');
+      
       final response = await http.post(
         url,
         headers: {
@@ -33,18 +42,20 @@ class RouteService {
         final data = jsonDecode(response.body);
         return _decodeRoute(data);
       } else {
-        print('Failed to get route: ${response.statusCode}');
-        print('Response: ${response.body}');
-        return null;
+        debugPrint('Failed to get route: ${response.statusCode}');
+        debugPrint('Response: ${response.body}');
+        return getSimulatedRoute(start, destination);
       }
     } catch (e) {
-      print('Error getting route: $e');
-      return null;
+      debugPrint('Error getting route: $e');
+      return getSimulatedRoute(start, destination);
     }
   }
 
   // For demo purposes, if API key is not set, return a simulated route
   static Future<List<LatLng>> getSimulatedRoute(LatLng start, LatLng destination) async {
+    debugPrint('Using simulated route from ${start.latitude},${start.longitude} to ${destination.latitude},${destination.longitude}');
+    
     // Create a simple straight line with some points in between
     final latDiff = destination.latitude - start.latitude;
     final lngDiff = destination.longitude - start.longitude;
@@ -72,7 +83,7 @@ class RouteService {
       final geometry = routes[0]['geometry'] as String;
       return _decodePolyline(geometry);
     } catch (e) {
-      print('Error decoding route: $e');
+      debugPrint('Error decoding route: $e');
       return null;
     }
   }

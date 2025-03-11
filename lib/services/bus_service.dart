@@ -14,18 +14,23 @@ class BusService {
   bool _isDisposed = false;
 
   // Simulated bus data
-  List<Bus> _buses = [];
+  final List<Bus> _buses = [];
   final Random _random = Random();
 
   // Center point for simulated buses (adjust these coordinates for your city)
-  final LatLng _center = LatLng(12.9716, 77.5946); // Example: Bangalore
+  static const LatLng _center = LatLng(12.9716, 77.5946); // Example: Bangalore
 
-  List<Bus> get buses => _buses;
+  List<Bus> get buses => List.unmodifiable(_buses);
 
   void startBusUpdates() {
-    // Initialize buses with random positions
-    _initializeBuses();
+    // Only initialize if not already done
+    if (_buses.isEmpty) {
+      _initializeBuses();
+    }
 
+    // Cancel existing timer if any
+    _timer?.cancel();
+    
     // Update bus positions every 2 seconds
     _timer = Timer.periodic(const Duration(seconds: 2), (_) {
       _updateBusPositions();
@@ -54,6 +59,8 @@ class BusService {
   }
 
   void _updateBusPositions() {
+    bool updated = false;
+    
     for (int i = 0; i < _buses.length; i++) {
       final bus = _buses[i];
       final movement = _getRandomMovement();
@@ -69,14 +76,19 @@ class BusService {
         etaMinutes: _random.nextInt(15) + 1,
         distanceToNextStop: _random.nextDouble() * 1000,
       );
+      
+      updated = true;
     }
-    _addToStream(_buses);
+    
+    if (updated) {
+      _addToStream(_buses);
+    }
   }
 
   // Safe method to add to stream
   void _addToStream(List<Bus> buses) {
     if (!_isDisposed && !_busController.isClosed) {
-      _busController.add(buses);
+      _busController.add(List.unmodifiable(buses));
     }
   }
 
@@ -98,6 +110,7 @@ class BusService {
   void dispose() {
     _isDisposed = true;
     _timer?.cancel();
+    _timer = null;
     if (!_busController.isClosed) {
       _busController.close();
     }

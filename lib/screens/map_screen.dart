@@ -35,7 +35,7 @@ class _MapScreenState extends State<MapScreen> {
   bool _isLoadingRoute = false;
 
   // Sample locations for demo purposes
-  final List<Map<String, dynamic>> _sampleLocations = [
+  final List<Map<String, dynamic>> _sampleLocations = const [
     {'name': 'Central Station', 'lat': 12.9716, 'lng': 77.5946},
     {'name': 'City Mall', 'lat': 12.9816, 'lng': 77.6046},
     {'name': 'University Campus', 'lat': 12.9616, 'lng': 77.5846},
@@ -54,41 +54,45 @@ class _MapScreenState extends State<MapScreen> {
     final hasPermission = await _locationService.requestPermission();
     if (hasPermission) {
       final location = await _locationService.getCurrentLocation();
-      if (location != null) {
+      if (location != null && mounted) {
         setState(() => _userLocation = location);
         _mapController.move(location, 15);
       }
       _locationService.startLocationUpdates();
       _locationService.locationStream.listen((location) {
-        setState(() => _userLocation = location);
-        if (_isFollowingUser) {
-          _mapController.move(location, _mapController.camera.zoom);
+        if (mounted) {
+          setState(() => _userLocation = location);
+          if (_isFollowingUser) {
+            _mapController.move(location, _mapController.camera.zoom);
+          }
         }
       });
     }
   }
 
   Future<void> _getRoute(LatLng start, LatLng end) async {
+    if (!mounted) return;
+    
     setState(() => _isLoadingRoute = true);
     
     try {
-      // For demo purposes, use simulated route if API key is not set
-      if (RouteService.apiKey == 'YOUR_API_KEY_HERE') {
-        final route = await RouteService.getSimulatedRoute(start, end);
+      // Get route from service
+      final route = await RouteService.getRoute(start, end);
+          
+      if (mounted) {
         setState(() {
-          _selectedRoute = route;
-          _isLoadingRoute = false;
-        });
-      } else {
-        final route = await RouteService.getRoute(start, end);
-        setState(() {
-          _selectedRoute = route;
+          _selectedRoute = route ?? [];
           _isLoadingRoute = false;
         });
       }
     } catch (e) {
-      print('Error getting route: $e');
-      setState(() => _isLoadingRoute = false);
+      debugPrint('Error getting route: $e');
+      if (mounted) {
+        setState(() {
+          _selectedRoute = [];
+          _isLoadingRoute = false;
+        });
+      }
     }
   }
 

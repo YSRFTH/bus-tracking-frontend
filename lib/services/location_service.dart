@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -13,24 +14,32 @@ class LocationService {
   StreamSubscription<Position>? _positionSubscription;
   
   Future<bool> requestPermission() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return false;
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        debugPrint('Location services are disabled');
         return false;
       }
-    }
 
-    if (permission == LocationPermission.deniedForever) {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          debugPrint('Location permissions are denied');
+          return false;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        debugPrint('Location permissions are permanently denied');
+        return false;
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('Error requesting location permission: $e');
       return false;
     }
-
-    return true;
   }
 
   Future<LatLng?> getCurrentLocation() async {
@@ -40,19 +49,28 @@ class LocationService {
       );
       return LatLng(position.latitude, position.longitude);
     } catch (e) {
+      debugPrint('Error getting current location: $e');
       return null;
     }
   }
 
   void startLocationUpdates() {
+    // Cancel existing subscription if any
+    _positionSubscription?.cancel();
+    
     _positionSubscription = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: 10, // Update every 10 meters
       ),
-    ).listen((Position position) {
-      _addToStream(LatLng(position.latitude, position.longitude));
-    });
+    ).listen(
+      (Position position) {
+        _addToStream(LatLng(position.latitude, position.longitude));
+      },
+      onError: (error) {
+        debugPrint('Error from location stream: $error');
+      },
+    );
   }
 
   // Safe method to add to stream
@@ -65,6 +83,7 @@ class LocationService {
   void dispose() {
     _isDisposed = true;
     _positionSubscription?.cancel();
+    _positionSubscription = null;
     if (!_locationController.isClosed) {
       _locationController.close();
     }
