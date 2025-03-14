@@ -12,148 +12,175 @@ import '../screens/settings/settings_screen.dart';
 import '../screens/route_comparison/route_comparison_screen.dart';
 
 class AppRouter {
-  static final _rootNavigatorKey = GlobalKey<NavigatorState>();
-  static final _shellNavigatorKey = GlobalKey<NavigatorState>();
+  static final GlobalKey<NavigatorState> _rootNavigatorKey =
+      GlobalKey<NavigatorState>();
+  static final GlobalKey<NavigatorState> _shellNavigatorKey =
+      GlobalKey<NavigatorState>();
+
+  // Helper for fade transitions
+  static CustomTransitionPage _fadeTransitionPage({
+    required LocalKey key,
+    required Widget child,
+  }) {
+    return CustomTransitionPage(
+      key: key,
+      child: child,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final curvedAnimation = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeInOutCubic, // Snappier transition
+        );
+
+        return FadeTransition(
+          opacity: curvedAnimation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.96, end: 1.0) // Slight zoom-in effect
+            .animate(curvedAnimation),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  static CustomTransitionPage _slideTransitionPage({
+    required LocalKey key,
+    required Widget child,
+    required Offset beginOffset,
+  }) {
+    return CustomTransitionPage(
+      key: key,
+      child: child,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final curvedAnimation = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeInOutSine, // Snappier exit
+        );
+
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: beginOffset,
+            end: Offset.zero,
+          ).animate(curvedAnimation),
+          child: FadeTransition(
+            // Adds a subtle fade effect
+            opacity: curvedAnimation,
+            child: child,
+          ),
+        );
+      },
+    );
+  }
 
   static final GoRouter router = GoRouter(
     initialLocation: '/',
     navigatorKey: _rootNavigatorKey,
     debugLogDiagnostics: true,
     routes: [
-      // Onboarding flow
+      // Onboarding Flow
       GoRoute(
         path: '/',
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const OnboardingScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-        ),
+        pageBuilder:
+            (context, state) => _fadeTransitionPage(
+              key: state.pageKey,
+              child: const OnboardingScreen(),
+            ),
       ),
-      
-      // Auth flow
+      // Auth Flow
       GoRoute(
         path: '/login',
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const LoginScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-        ),
+        pageBuilder:
+            (context, state) => _fadeTransitionPage(
+              key: state.pageKey,
+              child: const LoginScreen(),
+            ),
       ),
       GoRoute(
         path: '/otp',
         pageBuilder: (context, state) {
           final phoneNumber = state.extra as String? ?? '';
-          return CustomTransitionPage(
+          return _fadeTransitionPage(
             key: state.pageKey,
             child: OTPScreen(phoneNumber: phoneNumber),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
           );
         },
       ),
-      
-      // Main app shell with bottom navigation
+      // Main App Shell with Bottom Navigation
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
-        builder: (context, state, child) {
-          return ScaffoldWithNavBar(child: child);
-        },
+        builder: (context, state, child) => ScaffoldWithNavBar(child: child),
         routes: [
-          // Map screen (home)
+          // Map Screen (Home)
           GoRoute(
             path: '/map',
-            pageBuilder: (context, state) => NoTransitionPage(
-              key: state.pageKey,
-              child: const MapScreen(),
-            ),
+            pageBuilder:
+                (context, state) => _slideTransitionPage(
+                  key: state.pageKey,
+                  child: const MapScreen(),
+                  beginOffset: const Offset(-1, 0),
+                ),
             routes: [
-              // Route details as a sub-route of map
+              // Route Details as sub-route of Map
               GoRoute(
                 path: 'route/:routeId',
                 pageBuilder: (context, state) {
                   final routeId = state.pathParameters['routeId'] ?? '';
-                  return CustomTransitionPage(
+                  return _slideTransitionPage(
                     key: state.pageKey,
                     child: RouteDetailsScreen(routeId: routeId),
-                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                      return SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(1, 0),
-                          end: Offset.zero,
-                        ).animate(animation),
-                        child: child,
-                      );
-                    },
+                    beginOffset: const Offset(1, 0),
                   );
                 },
               ),
-              // Route comparison
+              // Route Comparison
               GoRoute(
                 path: 'compare',
-                pageBuilder: (context, state) => CustomTransitionPage(
-                  key: state.pageKey,
-                  child: const RouteComparisonScreen(),
-                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                    return SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 1),
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: child,
-                    );
-                  },
-                ),
+                pageBuilder:
+                    (context, state) => _slideTransitionPage(
+                      key: state.pageKey,
+                      child: const RouteComparisonScreen(),
+                      beginOffset: const Offset(0, 1),
+                    ),
               ),
             ],
           ),
-          
-          // Schedules screen
+          // Schedules Screen
           GoRoute(
             path: '/schedules',
-            pageBuilder: (context, state) => NoTransitionPage(
-              key: state.pageKey,
-              child: const ScheduleScreen(),
-            ),
+            pageBuilder:
+                (context, state) => _fadeTransitionPage(
+                  key: state.pageKey,
+                  child: const ScheduleScreen(),
+                ),
           ),
-          
-          // Notifications screen
+          // Notifications Screen
           GoRoute(
             path: '/notifications',
-            pageBuilder: (context, state) => NoTransitionPage(
-              key: state.pageKey,
-              child: const NotificationsScreen(),
-            ),
+            pageBuilder:
+                (context, state) => _fadeTransitionPage(
+                  key: state.pageKey,
+                  child: const NotificationsScreen(),
+                ),
           ),
-          
-          // Profile screen
+          // Profile Screen
           GoRoute(
             path: '/profile',
-            pageBuilder: (context, state) => NoTransitionPage(
-              key: state.pageKey,
-              child: const ProfileScreen(),
-            ),
+            pageBuilder:
+                (context, state) => _slideTransitionPage(
+                  key: state.pageKey,
+                  child: const ProfileScreen(),
+                  beginOffset: const Offset(1, 0),
+                ),
             routes: [
-              // Settings as a sub-route of profile
+              // Settings (sub-route of Profile)
               GoRoute(
                 path: 'settings',
-                pageBuilder: (context, state) => CustomTransitionPage(
-                  key: state.pageKey,
-                  child: const SettingsScreen(),
-                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                    return SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(1, 0),
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: child,
-                    );
-                  },
-                ),
+                pageBuilder:
+                    (context, state) => _slideTransitionPage(
+                      key: state.pageKey,
+                      child: const SettingsScreen(),
+                      beginOffset: const Offset(-1, 0),
+                    ),
               ),
             ],
           ),
@@ -167,10 +194,7 @@ class AppRouter {
 class ScaffoldWithNavBar extends StatelessWidget {
   final Widget child;
 
-  const ScaffoldWithNavBar({
-    super.key,
-    required this.child,
-  });
+  const ScaffoldWithNavBar({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -180,22 +204,13 @@ class ScaffoldWithNavBar extends StatelessWidget {
         selectedIndex: _calculateSelectedIndex(context),
         onDestinationSelected: (index) => _onItemTapped(index, context),
         destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.map),
-            label: 'Map',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.schedule),
-            label: 'Schedules',
-          ),
+          NavigationDestination(icon: Icon(Icons.map), label: 'Map'),
+          NavigationDestination(icon: Icon(Icons.schedule), label: 'Schedules'),
           NavigationDestination(
             icon: Icon(Icons.notifications),
             label: 'Notifications',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
+          NavigationDestination(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
     );
@@ -234,4 +249,4 @@ class ScaffoldWithNavBar extends StatelessWidget {
         break;
     }
   }
-} 
+}

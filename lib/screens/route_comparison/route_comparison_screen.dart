@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import '../../models/schedule.dart';
 import '../../services/schedule_service.dart';
 import '../../services/route_service.dart';
+import '../../data/sample_locations.dart';
 
 class RouteComparisonScreen extends StatefulWidget {
   const RouteComparisonScreen({super.key});
@@ -79,10 +80,10 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
       if (firstStop != null && lastStop != null) {
         // For demo purposes, use simulated route
         final route = await RouteService.getSimulatedRoute(firstStop, lastStop);
-        
+
         // Assign a color to this route
         final color = _colors[_selectedSchedules.length - 1 % _colors.length];
-        
+
         setState(() {
           _routePoints[schedule.routeId] = route;
           _routeColors[schedule.routeId] = color;
@@ -120,23 +121,6 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
     }
   }
 
-  // Helper to get coordinates for a stop name (demo data)
-  LatLng? _getStopCoordinates(String stopName) {
-    final Map<String, LatLng> stopCoordinates = {
-      'Central Station': LatLng(12.9716, 77.5946),
-      'Downtown': LatLng(12.9756, 77.5986),
-      'City Mall': LatLng(12.9816, 77.6046),
-      'Library': LatLng(12.9656, 77.5886),
-      'University Campus': LatLng(12.9616, 77.5846),
-      'Business District': LatLng(12.9836, 77.6066),
-      'Tech Park': LatLng(12.9916, 77.6146),
-      'Market Square': LatLng(12.9556, 77.5786),
-      'Hospital': LatLng(12.9516, 77.5746),
-    };
-    
-    return stopCoordinates[stopName];
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -172,34 +156,32 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.example.bus_tracking_app',
                     ),
                     // Draw route polylines
                     PolylineLayer(
-                      polylines: _routePoints.entries.map((entry) {
-                        return Polyline(
-                          points: entry.value,
-                          color: _routeColors[entry.key] ?? Colors.blue,
-                          strokeWidth: 4.0,
-                        );
-                      }).toList(),
+                      polylines:
+                          _routePoints.entries.map((entry) {
+                            return Polyline(
+                              points: entry.value,
+                              color: _routeColors[entry.key] ?? Colors.blue,
+                              strokeWidth: 4.0,
+                            );
+                          }).toList(),
                     ),
                     // Draw stop markers for selected routes
-                    MarkerLayer(
-                      markers: _buildMarkers(),
-                    ),
+                    MarkerLayer(markers: _buildMarkers()),
                   ],
                 ),
                 // Loading indicator
                 if (_isLoadingRoutes)
-                  const Center(
-                    child: CircularProgressIndicator(),
-                  ),
+                  const Center(child: CircularProgressIndicator()),
               ],
             ),
           ),
-          
+
           // Comparison section
           if (_selectedSchedules.isNotEmpty) ...[
             Container(
@@ -220,7 +202,7 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
               ),
             ),
           ],
-          
+
           // Available routes
           Expanded(
             child: ListView.builder(
@@ -229,27 +211,35 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
               itemBuilder: (context, index) {
                 final schedule = _allSchedules[index];
                 final isSelected = _selectedSchedules.contains(schedule);
-                
+
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
-                    side: isSelected
-                        ? BorderSide(
-                            color: _routeColors[schedule.routeId] ?? Theme.of(context).colorScheme.primary,
-                            width: 2,
-                          )
-                        : BorderSide.none,
+                    side:
+                        isSelected
+                            ? BorderSide(
+                              color:
+                                  _routeColors[schedule.routeId] ??
+                                  Theme.of(context).colorScheme.primary,
+                              width: 2,
+                            )
+                            : BorderSide.none,
                   ),
                   child: ListTile(
                     title: Text(schedule.routeName),
-                    subtitle: Text('${schedule.formattedJourneyTime} • ${schedule.daysOfOperation}'),
-                    trailing: isSelected
-                        ? Icon(
-                            Icons.check_circle,
-                            color: _routeColors[schedule.routeId] ?? Theme.of(context).colorScheme.primary,
-                          )
-                        : const Icon(Icons.add_circle_outline),
+                    subtitle: Text(
+                      '${schedule.formattedJourneyTime} • ${schedule.daysOfOperation}',
+                    ),
+                    trailing:
+                        isSelected
+                            ? Icon(
+                              Icons.check_circle,
+                              color:
+                                  _routeColors[schedule.routeId] ??
+                                  Theme.of(context).colorScheme.primary,
+                            )
+                            : const Icon(Icons.add_circle_outline),
                     onTap: () => _toggleScheduleSelection(schedule),
                   ),
                 );
@@ -261,12 +251,13 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
     );
   }
 
+  LatLng? _getStopCoordinates(String stopName) {
+    return getStopCoordinates(stopName);
+  }
+
   Widget _buildComparisonTable() {
     return Table(
-      border: TableBorder.all(
-        color: Colors.grey.shade300,
-        width: 1,
-      ),
+      border: TableBorder.all(color: Colors.grey.shade300, width: 1),
       columnWidths: const {
         0: FlexColumnWidth(2),
         1: FlexColumnWidth(1),
@@ -276,13 +267,14 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
       children: [
         // Header row
         TableRow(
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-          ),
+          decoration: BoxDecoration(color: Colors.grey.shade100),
           children: [
             const Padding(
               padding: EdgeInsets.all(8.0),
-              child: Text('Route', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: Text(
+                'Route',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
             ...List.generate(_selectedSchedules.length, (index) {
               final schedule = _selectedSchedules[index];
@@ -298,10 +290,13 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
               );
             }),
             if (_selectedSchedules.length < 3)
-              ...List.generate(3 - _selectedSchedules.length, (_) => const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Text('-'),
-              )),
+              ...List.generate(
+                3 - _selectedSchedules.length,
+                (_) => const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('-'),
+                ),
+              ),
           ],
         ),
         // Journey time row
@@ -319,19 +314,19 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
               );
             }),
             if (_selectedSchedules.length < 3)
-              ...List.generate(3 - _selectedSchedules.length, (_) => const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Text('-'),
-              )),
+              ...List.generate(
+                3 - _selectedSchedules.length,
+                (_) => const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('-'),
+                ),
+              ),
           ],
         ),
         // Stops row
         TableRow(
           children: [
-            const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Text('Stops'),
-            ),
+            const Padding(padding: EdgeInsets.all(8.0), child: Text('Stops')),
             ...List.generate(_selectedSchedules.length, (index) {
               final schedule = _selectedSchedules[index];
               return Padding(
@@ -340,10 +335,13 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
               );
             }),
             if (_selectedSchedules.length < 3)
-              ...List.generate(3 - _selectedSchedules.length, (_) => const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Text('-'),
-              )),
+              ...List.generate(
+                3 - _selectedSchedules.length,
+                (_) => const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('-'),
+                ),
+              ),
           ],
         ),
         // First departure row
@@ -361,10 +359,13 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
               );
             }),
             if (_selectedSchedules.length < 3)
-              ...List.generate(3 - _selectedSchedules.length, (_) => const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Text('-'),
-              )),
+              ...List.generate(
+                3 - _selectedSchedules.length,
+                (_) => const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('-'),
+                ),
+              ),
           ],
         ),
         // Last arrival row
@@ -382,10 +383,13 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
               );
             }),
             if (_selectedSchedules.length < 3)
-              ...List.generate(3 - _selectedSchedules.length, (_) => const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Text('-'),
-              )),
+              ...List.generate(
+                3 - _selectedSchedules.length,
+                (_) => const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('-'),
+                ),
+              ),
           ],
         ),
       ],
@@ -417,4 +421,4 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
     }
     return markers;
   }
-} 
+}

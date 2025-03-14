@@ -5,10 +5,7 @@ import '../models/bus.dart';
 class BusDetailsSheet extends StatelessWidget {
   final Bus bus;
 
-  const BusDetailsSheet({
-    super.key,
-    required this.bus,
-  });
+  const BusDetailsSheet({super.key, required this.bus});
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +16,12 @@ class BusDetailsSheet extends StatelessWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(red: 0, green: 0, blue: 0, alpha: 26),
+            color: Colors.black.withValues(
+              red: 0,
+              green: 0,
+              blue: 0,
+              alpha: 26,
+            ),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -101,19 +103,16 @@ class BusDetailsSheet extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[600],
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
               ),
               const SizedBox(height: 2),
-              Text(
-                value,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+              Text(value, style: Theme.of(context).textTheme.titleMedium),
             ],
           ),
         ],
       ),
     ).animate().fadeIn().slideX(delay: delay.ms);
   }
-} 
+}

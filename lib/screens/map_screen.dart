@@ -1,13 +1,20 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
+import 'package:provider/provider.dart';
+
+import 'package:geolocator/geolocator.dart';
+
 import '../models/bus.dart';
+import '../providers/theme_provider.dart';
 import '../services/bus_service.dart';
 import '../services/location_service.dart';
 import '../services/route_service.dart';
 import '../widgets/bus_marker.dart';
 import '../widgets/bus_details_sheet.dart';
+import '../data/sample_locations.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -17,14 +24,14 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  final _mapController = MapController();
-  final _busService = BusService();
-  final _locationService = LocationService();
-  final _panelController = PanelController();
-  final _searchFocusNode = FocusNode();
-  final _searchController = TextEditingController();
-  final _destinationController = TextEditingController();
-  
+  final MapController _mapController = MapController();
+  final BusService _busService = BusService();
+  final LocationService _locationService = LocationService();
+  final PanelController _panelController = PanelController();
+  final FocusNode _searchFocusNode = FocusNode();
+  final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _destinationController = TextEditingController();
+
   Bus? _selectedBus;
   LatLng? _userLocation;
   LatLng? _destinationLocation;
@@ -34,14 +41,16 @@ class _MapScreenState extends State<MapScreen> {
   List<LatLng>? _selectedRoute;
   bool _isLoadingRoute = false;
 
-  // Sample locations for demo purposes
-  final List<Map<String, dynamic>> _sampleLocations = const [
-    {'name': 'Central Station', 'lat': 12.9716, 'lng': 77.5946},
-    {'name': 'City Mall', 'lat': 12.9816, 'lng': 77.6046},
-    {'name': 'University Campus', 'lat': 12.9616, 'lng': 77.5846},
-    {'name': 'Tech Park', 'lat': 12.9916, 'lng': 77.6146},
-    {'name': 'Hospital', 'lat': 12.9516, 'lng': 77.5746},
-  ];
+  // Demo sample locations.
+  final List<Map<String, dynamic>> _sampleLocations = sampleLocations;
+
+  // Default center: roughly the demo center.
+  static const LatLng _defaultCenter = LatLng(
+    34.88244789418636,
+    -1.3179058311144984,
+  );
+
+  StreamSubscription<LatLng>? _locationSubscription;
 
   @override
   void initState() {
@@ -59,7 +68,9 @@ class _MapScreenState extends State<MapScreen> {
         _mapController.move(location, 15);
       }
       _locationService.startLocationUpdates();
-      _locationService.locationStream.listen((location) {
+      _locationSubscription = _locationService.locationStream.listen((
+        location,
+      ) {
         if (mounted) {
           setState(() => _userLocation = location);
           if (_isFollowingUser) {
@@ -70,15 +81,54 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  Future<void> _handleLocateMe() async {
+    // Re-request permission when "locate me" is pressed.
+    final hasPermission = await _locationService.requestPermission();
+    if (!hasPermission) {
+      // Show a dialog to guide the user to app settings.
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder:
+              (context) => AlertDialog(
+                title: const Text('Location Permission'),
+                content: const Text(
+                  'Location permission is disabled. Please enable it in your device settings.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      Geolocator.openAppSettings();
+                    },
+                    child: const Text('Open Settings'),
+                  ),
+                ],
+              ),
+        );
+      }
+      return;
+    }
+    // If permission granted, update location.
+    final location = await _locationService.getCurrentLocation();
+    if (location != null) {
+      setState(() {
+        _userLocation = location;
+        _isFollowingUser = true;
+      });
+      _mapController.move(location, 15);
+    }
+  }
+
   Future<void> _getRoute(LatLng start, LatLng end) async {
     if (!mounted) return;
-    
     setState(() => _isLoadingRoute = true);
-    
     try {
-      // Get route from service
       final route = await RouteService.getRoute(start, end);
-          
       if (mounted) {
         setState(() {
           _selectedRoute = route ?? [];
@@ -101,8 +151,6 @@ class _MapScreenState extends State<MapScreen> {
     _panelController.open();
     _mapController.move(bus.position, 15);
     _isFollowingUser = false;
-    
-    // Get route from user location to bus
     if (_userLocation != null) {
       _getRoute(_userLocation!, bus.position);
     }
@@ -115,11 +163,8 @@ class _MapScreenState extends State<MapScreen> {
       _isSearchExpanded = false;
       _showDestinationInput = true;
     });
-    
     _mapController.move(location, 15);
     _searchFocusNode.unfocus();
-    
-    // Get route from user location to destination
     if (_userLocation != null) {
       _getRoute(_userLocation!, location);
     }
@@ -134,30 +179,44 @@ class _MapScreenState extends State<MapScreen> {
     });
   }
 
+  // Filter locations by any field starting with "name"
+  List<Map<String, dynamic>> _filterLocations(String query) {
+    return _sampleLocations.where((location) {
+      return location.entries.any((entry) {
+        if (entry.key == 'name' || entry.key.startsWith('name_')) {
+          return (entry.value as String).toLowerCase().contains(query);
+        }
+        return false;
+      });
+    }).toList();
+  }
+
   List<Widget> _buildSearchResults() {
     final query = _searchController.text.toLowerCase();
     if (query.isEmpty) return [];
-    
-    return _sampleLocations
-        .where((location) => 
-            location['name'].toLowerCase().contains(query))
-        .map((location) => ListTile(
-              leading: const Icon(Icons.location_on),
-              title: Text(location['name']),
-              onTap: () {
-                _setDestination(
-                  LatLng(location['lat'], location['lng']),
-                  location['name'],
-                );
-              },
-            ))
-        .toList();
+    final filtered = _filterLocations(query);
+    return filtered.map((location) {
+      return ListTile(
+        leading: const Icon(Icons.location_on),
+        title: Text(
+          location['name'],
+          style: Theme.of(context).textTheme.bodyLarge,
+        ),
+        onTap: () {
+          _setDestination(
+            LatLng(location['lat'], location['lng']),
+            location['name'],
+          );
+        },
+      );
+    }).toList();
   }
 
   @override
   void dispose() {
     _busService.dispose();
     _locationService.dispose();
+    _locationSubscription?.cancel();
     _searchFocusNode.dispose();
     _searchController.dispose();
     _destinationController.dispose();
@@ -166,6 +225,11 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    // Precompute search results for performance.
+    final searchResults =
+        _isSearchExpanded ? _buildSearchResults() : <Widget>[];
+
     return Scaffold(
       body: Stack(
         children: [
@@ -174,13 +238,14 @@ class _MapScreenState extends State<MapScreen> {
             minHeight: 0,
             maxHeight: 300,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            panel: _selectedBus != null
-                ? BusDetailsSheet(bus: _selectedBus!)
-                : const SizedBox.shrink(),
+            panel:
+                _selectedBus != null
+                    ? BusDetailsSheet(bus: _selectedBus!)
+                    : const SizedBox.shrink(),
             body: FlutterMap(
               mapController: _mapController,
               options: MapOptions(
-                initialCenter: _userLocation ?? const LatLng(12.9716, 77.5946),
+                initialCenter: _userLocation ?? _defaultCenter,
                 initialZoom: 15,
                 onTap: (_, __) {
                   _panelController.close();
@@ -196,13 +261,16 @@ class _MapScreenState extends State<MapScreen> {
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.example.bus_tracking_app',
                 ),
-                // Draw route polylines
+                // Route polyline with color based on theme
                 if (_selectedRoute != null)
                   PolylineLayer(
                     polylines: [
                       Polyline(
                         points: _selectedRoute!,
-                        color: Colors.blue,
+                        color:
+                            themeProvider.isDarkMode
+                                ? Colors.white
+                                : Colors.blue,
                         strokeWidth: 4.0,
                       ),
                     ],
@@ -236,12 +304,9 @@ class _MapScreenState extends State<MapScreen> {
                         point: bus.position,
                         width: 30,
                         height: 30,
-                        child: GestureDetector(
-                          onTap: () => _onBusSelected(bus),
-                          child: BusMarker(
-                            heading: bus.heading,
-                            isSelected: bus.id == _selectedBus?.id,
-                          ),
+                        child: BusMarker(
+                          heading: bus.heading,
+                          isSelected: bus.id == _selectedBus?.id,
                         ),
                       ),
                     ),
@@ -250,23 +315,24 @@ class _MapScreenState extends State<MapScreen> {
               ],
             ),
           ),
-          // Search Bar
           SafeArea(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Destination input
                 if (_showDestinationInput)
                   Container(
                     margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color:
+                          themeProvider.isDarkMode
+                              ? Colors.grey[800]
+                              : Colors.white,
                       borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
+                      boxShadow: const [
                         BoxShadow(
-                          color: Colors.black.withValues(red: 0, green: 0, blue: 0, alpha: 26),
+                          color: Color.fromARGB(26, 0, 0, 0),
                           blurRadius: 8,
-                          offset: const Offset(0, 2),
+                          offset: Offset(0, 2),
                         ),
                       ],
                     ),
@@ -280,7 +346,7 @@ class _MapScreenState extends State<MapScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             child: Text(
                               _destinationController.text,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: Theme.of(context).textTheme.bodyLarge,
                             ),
                           ),
                         ),
@@ -291,8 +357,6 @@ class _MapScreenState extends State<MapScreen> {
                       ],
                     ),
                   ),
-                
-                // Search bar
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   margin: EdgeInsets.symmetric(
@@ -300,13 +364,16 @@ class _MapScreenState extends State<MapScreen> {
                     vertical: _isSearchExpanded ? 0 : 8,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color:
+                        themeProvider.isDarkMode
+                            ? Colors.grey[800]
+                            : Colors.white,
                     borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
+                    boxShadow: const [
                       BoxShadow(
-                        color: Colors.black.withValues(red: 0, green: 0, blue: 0, alpha: 26),
+                        color: Color.fromARGB(26, 0, 0, 0),
                         blurRadius: 8,
-                        offset: const Offset(0, 2),
+                        offset: Offset(0, 2),
                       ),
                     ],
                   ),
@@ -318,6 +385,7 @@ class _MapScreenState extends State<MapScreen> {
                         focusNode: _searchFocusNode,
                         decoration: InputDecoration(
                           hintText: 'Where to?',
+                          hintStyle: Theme.of(context).textTheme.bodyLarge,
                           prefixIcon: const Icon(Icons.search),
                           suffixIcon: IconButton(
                             icon: const Icon(Icons.close),
@@ -336,11 +404,14 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                       if (_isSearchExpanded) ...[
                         const Divider(height: 1),
-                        ..._buildSearchResults(),
-                        if (_searchController.text.isNotEmpty && _buildSearchResults().isEmpty)
+                        ...searchResults,
+                        if (_searchController.text.isNotEmpty &&
+                            searchResults.isEmpty)
                           const Padding(
                             padding: EdgeInsets.all(16.0),
-                            child: Text('No locations found. Try a different search.'),
+                            child: Text(
+                              'No locations found. Try a different search.',
+                            ),
                           ),
                         if (_searchController.text.isEmpty) ...[
                           ListTile(
@@ -365,8 +436,6 @@ class _MapScreenState extends State<MapScreen> {
               ],
             ),
           ),
-          
-          // Loading indicator
           if (_isLoadingRoute)
             const Center(
               child: Card(
@@ -388,14 +457,10 @@ class _MapScreenState extends State<MapScreen> {
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
+          // Locate Me Button: now calls _handleLocateMe()
           FloatingActionButton(
             heroTag: 'location',
-            onPressed: () {
-              if (_userLocation != null) {
-                _mapController.move(_userLocation!, 15);
-                setState(() => _isFollowingUser = true);
-              }
-            },
+            onPressed: _handleLocateMe,
             child: Icon(
               _isFollowingUser ? Icons.gps_fixed : Icons.gps_not_fixed,
             ),
@@ -426,4 +491,4 @@ class _MapScreenState extends State<MapScreen> {
       ),
     );
   }
-} 
+}

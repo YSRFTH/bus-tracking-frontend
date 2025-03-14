@@ -17,13 +17,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _selectedLanguage = 'English';
   bool _isLoading = true;
 
-  final List<String> _availableLanguages = [
-    'English',
-    'French',
-    'Spanish',
-    'Arabic',
-    'Hindi',
-  ];
+  final List<String> _availableLanguages = ['English', 'French', 'Arabic'];
 
   @override
   void initState() {
@@ -33,7 +27,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     setState(() {
       _isDarkMode = prefs.getBool('isDarkMode') ?? false;
       _useHighContrastMode = prefs.getBool('useHighContrastMode') ?? false;
@@ -47,14 +41,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     await prefs.setBool('isDarkMode', _isDarkMode);
     await prefs.setBool('useHighContrastMode', _useHighContrastMode);
     await prefs.setBool('enableNotifications', _enableNotifications);
     await prefs.setBool('saveSearchHistory', _saveSearchHistory);
     await prefs.setDouble('textScaleFactor', _textScaleFactor);
     await prefs.setString('selectedLanguage', _selectedLanguage);
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Settings saved'),
@@ -66,17 +60,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-      ),
+      appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
           // Appearance section
@@ -114,7 +102,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-          
+
           // Language section
           _buildSectionHeader('Language'),
           ListTile(
@@ -125,12 +113,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _showLanguageDialog();
             },
           ),
-          
+
           // Privacy section
           _buildSectionHeader('Privacy'),
           SwitchListTile(
             title: const Text('Enable Notifications'),
-            subtitle: const Text('Receive updates about bus arrivals and delays'),
+            subtitle: const Text(
+              'Receive updates about bus arrivals and delays',
+            ),
             value: _enableNotifications,
             onChanged: (value) {
               setState(() => _enableNotifications = value);
@@ -158,7 +148,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _showClearCacheDialog();
             },
           ),
-          
+
           // About section
           _buildSectionHeader('About'),
           ListTile(
@@ -180,7 +170,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: const Text('1.0.0'),
             leading: const Icon(Icons.info),
           ),
-          
+
           // Save button
           Padding(
             padding: const EdgeInsets.all(16.0),
@@ -249,7 +239,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context) {
         return AlertDialog(
           title: const Text('Clear Search History'),
-          content: const Text('Are you sure you want to clear your search history?'),
+          content: const Text(
+            'Are you sure you want to clear your search history?',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -280,7 +272,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context) {
         return AlertDialog(
           title: const Text('Clear Cache'),
-          content: const Text('Are you sure you want to clear the app cache? This will remove all saved routes and schedules.'),
+          content: const Text(
+            'Are you sure you want to clear the app cache? This will remove all saved routes and schedules.',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -304,4 +298,4 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
     );
   }
-} 
+}

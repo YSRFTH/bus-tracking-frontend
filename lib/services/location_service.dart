@@ -12,7 +12,7 @@ class LocationService {
   Stream<LatLng> get locationStream => _locationController.stream;
   bool _isDisposed = false;
   StreamSubscription<Position>? _positionSubscription;
-  
+
   Future<bool> requestPermission() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -57,11 +57,11 @@ class LocationService {
   void startLocationUpdates() {
     // Cancel existing subscription if any
     _positionSubscription?.cancel();
-    
+
     _positionSubscription = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 10, // Update every 10 meters
+        distanceFilter: 25, // Update every 10 meters
       ),
     ).listen(
       (Position position) {
@@ -88,4 +88,4 @@ class LocationService {
       _locationController.close();
     }
   }
-} 
+}
